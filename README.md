@@ -136,3 +136,7 @@ on Ubuntu 22.04 (glibc 2.35) with no rebuild.
 - Enables promiscuous mode like `tcpdump`, restores flags on exit
 - Prints each new VID immediately (`stdout`, flushed); `--counts` prints the
   final table at the end
+
+## License
+
+MIT — see [LICENSE](LICENSE).
