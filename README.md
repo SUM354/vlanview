@@ -116,13 +116,24 @@ sudo timeout 30 tcpdump -i ens18 -nn -e -l vlan \
 
 ## Building from source
 
-Needs Rust 1.85+ (for edition 2024; Ubuntu 22.04 stock `apt` rustc is older,
-so use `rustup`):
+Prerequisites: Rust 1.85+ (edition 2024). Ubuntu 22.04 stock `apt` rustc is
+older, so install via `rustup`:
 
 ```bash
+# 1. Install Rust (if needed)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source "$HOME/.cargo/env"
+rustc --version   # should be 1.85+
+
+# 2. Clone and build
+git clone https://github.com/SUM354/vlanview.git
+cd vlanview
 cargo test
 cargo build --release
+
+# 3. Run it
 ./target/release/vlanview --version
+sudo ./target/release/vlanview -i ens18 -t 30
 ```
 
 The binary needs at most `GLIBC_2.34`, so a build on Ubuntu 24.04 also runs
