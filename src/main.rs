@@ -17,8 +17,13 @@ use std::time::{Duration, Instant};
 
 const SOL_PACKET: i32 = 263;
 const PACKET_AUXDATA: i32 = 8;
-const SIOCGIFFLAGS: u64 = 0x8913;
-const SIOCSIFFLAGS: u64 = 0x8914;
+// ioctl request takes c_ulong on glibc, c_int on musl
+#[cfg(target_env = "musl")]
+type IoctlRequest = libc::c_int;
+#[cfg(not(target_env = "musl"))]
+type IoctlRequest = libc::c_ulong;
+const SIOCGIFFLAGS: IoctlRequest = 0x8913 as IoctlRequest;
+const SIOCSIFFLAGS: IoctlRequest = 0x8914 as IoctlRequest;
 const IFF_PROMISC: i16 = 0x100;
 
 #[repr(C)]
@@ -235,7 +240,7 @@ fn set_promisc(iface: &str, enable: bool) -> io::Result<i16> {
             ));
         }
         ifr[..bytes.len()].copy_from_slice(bytes);
-        if libc::ioctl(fd, SIOCGIFFLAGS as libc::c_ulong, ifr.as_mut_ptr()) != 0 {
+        if libc::ioctl(fd, SIOCGIFFLAGS as IoctlRequest, ifr.as_mut_ptr()) != 0 {
             return Err(io::Error::last_os_error());
         }
         let old_flags = i16::from_ne_bytes([ifr[16], ifr[17]]);
@@ -247,7 +252,7 @@ fn set_promisc(iface: &str, enable: bool) -> io::Result<i16> {
         let nb = new_flags.to_ne_bytes();
         ifr[16] = nb[0];
         ifr[17] = nb[1];
-        if libc::ioctl(fd, SIOCSIFFLAGS as libc::c_ulong, ifr.as_mut_ptr()) != 0 {
+        if libc::ioctl(fd, SIOCSIFFLAGS as IoctlRequest, ifr.as_mut_ptr()) != 0 {
             return Err(io::Error::last_os_error());
         }
         Ok(old_flags)
@@ -403,7 +408,7 @@ fn listen(args: &Args) -> io::Result<HashMap<u16, u64>> {
                         if b.len() < libc::IFNAMSIZ {
                             ifr[..b.len()].copy_from_slice(b);
                             // read current, restore only PROMISC bit
-                            if libc::ioctl(fd2, SIOCGIFFLAGS as libc::c_ulong, ifr.as_mut_ptr()) == 0
+                            if libc::ioctl(fd2, SIOCGIFFLAGS as IoctlRequest, ifr.as_mut_ptr()) == 0
                             {
                                 let cur = i16::from_ne_bytes([ifr[16], ifr[17]]);
                                 let restored = if old & IFF_PROMISC != 0 {
@@ -414,7 +419,7 @@ fn listen(args: &Args) -> io::Result<HashMap<u16, u64>> {
                                 let nb = restored.to_ne_bytes();
                                 ifr[16] = nb[0];
                                 ifr[17] = nb[1];
-                                libc::ioctl(fd2, SIOCSIFFLAGS as libc::c_ulong, ifr.as_mut_ptr());
+                                libc::ioctl(fd2, SIOCSIFFLAGS as IoctlRequest, ifr.as_mut_ptr());
                             }
                         }
                         libc::close(fd2);
@@ -468,7 +473,7 @@ fn listen(args: &Args) -> io::Result<HashMap<u16, u64>> {
             hdr.msg_iov = &mut iov;
             hdr.msg_iovlen = 1;
             hdr.msg_control = cbuf.as_mut_ptr() as *mut libc::c_void;
-            hdr.msg_controllen = cbuf.len();
+            hdr.msg_controllen = cbuf.len() as _;
             let n = libc::recvmsg(fd, &mut hdr as *mut libc::msghdr, 0);
             (n, hdr.msg_controllen as usize)
         };
